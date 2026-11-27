@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { env } from "./env.js";
 import { admin } from "./routes/admin.js";
 import { store } from "./routes/store.js";
+import { productsDir } from "./uploads.js";
 
 export const app = express();
 
@@ -19,6 +20,12 @@ app.use(cookieParser());
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
+
+// Uploaded product photos. File names are random and never change, so they cache for a year.
+app.use(
+  "/uploads/products",
+  express.static(productsDir, { immutable: true, maxAge: "365d", index: false, dotfiles: "deny" }),
+);
 
 app.use(store);
 app.use(admin);

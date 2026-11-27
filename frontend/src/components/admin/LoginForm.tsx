@@ -39,6 +39,8 @@ export default function LoginForm({ lang, t }: { lang: string; t: Labels }) {
     setMessage("");
     try {
       await adminLogin(email, password);
+      // Next keeps this page in memory after leaving it, so do not keep the password there.
+      setPassword("");
       router.replace(`/${lang}/admin`);
     } catch (error) {
       const status = error instanceof ApiError ? error.status : 0;

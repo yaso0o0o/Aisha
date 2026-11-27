@@ -13,6 +13,7 @@ import {
 } from "../auth.js";
 import { prisma } from "../db.js";
 import { invalid } from "../validate.js";
+import { adminProducts } from "./adminProducts.js";
 
 export const admin = Router();
 
@@ -62,3 +63,5 @@ admin.use("/admin", requireAdmin);
 admin.get("/admin/me", (req, res) => {
   res.json({ email: req.admin!.email });
 });
+
+admin.use(adminProducts);

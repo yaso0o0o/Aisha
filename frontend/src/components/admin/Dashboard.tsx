@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { removeProduct, saveProduct, totalStock, useAdminProducts, type AdminProduct } from "@/data/admin";
+import { useCallback, useEffect, useState } from "react";
+import { ApiError, deleteProduct, listProducts, totalStock, updateProduct, type ApiProduct } from "@/data/api";
 import { categories, formatPrice } from "@/data/products";
 import { search } from "@/data/search";
 import ProductForm, { field } from "./ProductForm";
@@ -10,15 +10,33 @@ import { useAdmin } from "./lang";
 const action = "min-h-11 rounded-lg border border-navy/25 px-4 font-bold hover:bg-navy/5";
 
 export default function Dashboard() {
-  const products = useAdminProducts();
   const { lang, tr, num } = useAdmin();
-  const nameOf = (p: AdminProduct) => (lang === "ar" ? p.nameAr : p.nameEn || p.nameAr);
+  const [products, setProducts] = useState<ApiProduct[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const nameOf = (p: ApiProduct) => (lang === "ar" ? p.nameAr : p.nameEn || p.nameAr);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   // undefined: list, null: new product
-  const [editing, setEditing] = useState<AdminProduct | null | undefined>(undefined);
+  const [editing, setEditing] = useState<ApiProduct | null | undefined>(undefined);
   const [deleting, setDeleting] = useState("");
   const [message, setMessage] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      setProducts(await listProducts());
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- first load from the API
+    load();
+  }, [load]);
+
+  const replace = (saved: ApiProduct) =>
+    setProducts((list) => list && list.map((p) => (p.id === saved.id ? saved : p)));
 
   if (editing !== undefined) {
     return (
@@ -26,11 +44,25 @@ export default function Dashboard() {
         initial={editing}
         onClose={(saved) => {
           setEditing(undefined);
-          setMessage(saved ? tr("المنتج اتحفظ.", "Product saved.") : "");
+          if (saved) {
+            setProducts((list) => list && (list.some((p) => p.id === saved.id) ? list.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...list]));
+            setMessage(tr("المنتج اتحفظ.", "Product saved."));
+          } else setMessage("");
         }}
       />
     );
   }
+
+  if (loadFailed) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-3">
+        <p role="alert" className="font-bold">{tr("مقدرناش نجيب المنتجات من السيرفر.", "Could not load products from the server.")}</p>
+        <button type="button" className={action} onClick={load}>{tr("جربي تاني", "Try again")}</button>
+      </div>
+    );
+  }
+
+  if (!products) return <p role="status" className="mx-auto max-w-5xl opacity-70">{tr("بنحمّل المنتجات...", "Loading products...")}</p>;
 
   const shown = search(
     products.filter((p) => !category || p.category === category),
@@ -44,6 +76,41 @@ export default function Dashboard() {
     [tr("عليها خصم", "On discount"), products.filter((p) => p.discount > 0).length],
     [tr("مخفية", "Hidden"), products.filter((p) => p.hidden).length],
   ];
+
+  async function savePrice(p: ApiProduct, input: HTMLInputElement) {
+    const price = Number(input.value);
+    if (!(price > 0) || price === p.price) {
+      input.value = String(p.price);
+      return;
+    }
+    try {
+      replace(await updateProduct(p.id, { price, updatedAt: p.updatedAt }));
+      setMessage(`${nameOf(p)}: ${formatPrice(price, lang)}`);
+    } catch (error) {
+      input.value = String(p.price);
+      setMessage(
+        error instanceof ApiError && error.status === 409
+          ? tr("المنتج ده اتعدل من مكان تاني. حدّثنا القايمة، جربي تاني.", "This product was changed elsewhere. The list was refreshed, try again.")
+          : tr("السعر متحفظش. جربي تاني.", "The price was not saved. Try again."),
+      );
+      if (error instanceof ApiError && error.status === 409) load();
+    }
+  }
+
+  async function remove(p: ApiProduct) {
+    setDeleting("");
+    try {
+      const { archived } = await deleteProduct(p.id);
+      setProducts((list) => list && list.filter((x) => x.id !== p.id));
+      setMessage(
+        archived
+          ? `${nameOf(p)}: ${tr("اتشال من المتجر، واتحفظ في الأرشيف علشان عليه طلبات قديمة.", "removed from the shop and archived because it has past orders.")}`
+          : `${nameOf(p)}: ${tr("اتمسح", "deleted")}`,
+      );
+    } catch {
+      setMessage(tr("المنتج متمسحش. جربي تاني.", "The product was not deleted. Try again."));
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -71,9 +138,13 @@ export default function Dashboard() {
 
       <ul className="space-y-3">
         {shown.map((p) => (
-          <li key={p.slug} className="flex flex-wrap items-center gap-4 rounded-xl bg-white p-3 shadow">
-            {/* eslint-disable-next-line @next/next/no-img-element -- may be a local data URL */}
-            <img src={p.image} alt="" loading="lazy" className="h-20 w-16 rounded-lg object-cover" />
+          <li key={p.id} className="flex flex-wrap items-center gap-4 rounded-xl bg-white p-3 shadow">
+            {p.images[0] ? (
+              // eslint-disable-next-line @next/next/no-img-element -- photos come from the API
+              <img src={p.images[0]} alt="" loading="lazy" className="h-20 w-16 rounded-lg object-cover" />
+            ) : (
+              <div className="h-20 w-16 rounded-lg bg-navy/10" />
+            )}
             <div className="min-w-0 flex-1 basis-48">
               <h2 className="font-bold">{nameOf(p)}</h2>
               <p className="text-sm">
@@ -87,33 +158,19 @@ export default function Dashboard() {
             <label className="text-sm font-bold">
               {tr("السعر", "Price")}
               <input
-                key={p.price}
+                key={`${p.id}-${p.price}`}
                 type="number"
                 min="1"
                 className={`${field} !w-28`}
                 defaultValue={p.price}
-                onBlur={(e) => {
-                  const price = Number(e.target.value);
-                  if (price > 0 && price !== p.price) {
-                    saveProduct({ ...p, price });
-                    setMessage(`${nameOf(p)}: ${formatPrice(price, lang)}`);
-                  } else e.target.value = String(p.price);
-                }}
+                onBlur={(e) => savePrice(p, e.currentTarget)}
                 onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               />
             </label>
-            {deleting === p.slug ? (
+            {deleting === p.id ? (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-bold">{tr("متأكدة؟", "Sure?")}</span>
-                <button
-                  type="button"
-                  className="min-h-11 rounded-lg bg-wine px-4 font-bold text-linen"
-                  onClick={() => {
-                    removeProduct(p.slug);
-                    setDeleting("");
-                    setMessage(`${nameOf(p)}: ${tr("اتمسح", "deleted")}`);
-                  }}
-                >
+                <button type="button" className="min-h-11 rounded-lg bg-wine px-4 font-bold text-linen" onClick={() => remove(p)}>
                   {tr("امسحي", "Delete")}
                 </button>
                 <button type="button" className={action} onClick={() => setDeleting("")}>{tr("لأ", "No")}</button>
@@ -121,7 +178,7 @@ export default function Dashboard() {
             ) : (
               <div className="flex gap-2">
                 <button type="button" className={action} onClick={() => setEditing(p)}>{tr("تعديل", "Edit")}</button>
-                <button type="button" className={action} onClick={() => setDeleting(p.slug)}>{tr("مسح", "Delete")}</button>
+                <button type="button" className={action} onClick={() => setDeleting(p.id)}>{tr("مسح", "Delete")}</button>
               </div>
             )}
           </li>

@@ -8,6 +8,8 @@ const schema = z.object({
   PORT: z.coerce.number().default(4000),
   FRONTEND_ORIGIN: z.string().url(),
   /** Number of proxies in front of the API (e.g. 1 behind the host's load balancer), for real client IPs. */
+  /** Where uploaded product photos are saved. */
+  UPLOAD_DIR: z.string().default("uploads"),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 });
 

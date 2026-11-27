@@ -26,6 +26,9 @@ API on http://localhost:4000, check `GET /health`.
 | POST | `/admin/login` | `{ email, password }`, sets the session cookie |
 | POST | `/admin/logout` | ends the session |
 | GET | `/admin/me` | the logged-in admin, or 401 |
+| GET, POST | `/admin/products` | all products (hidden too), create |
+| GET, PATCH, DELETE | `/admin/products/:id` | one product; PATCH needs `updatedAt`; DELETE archives a product with past orders |
+| POST | `/admin/uploads` | `multipart`, field `file`, returns `{ url }` |
 
 All prices, stock and shipping prices in the seed are samples.
 
@@ -35,3 +38,9 @@ All prices, stock and shipping prices in the seed are samples.
 - 10 wrong logins per 15 minutes per IP, then 429.
 - The frontend must call the API with `credentials: "include"`.
 - In production set `NODE_ENV=production` and `TRUST_PROXY` to the number of proxies in front of the API.
+
+## Product photos
+- Uploads are decoded and saved again as WebP (max 1600 px, 8 MB upload limit), so only real images are kept and phone metadata (like location) is removed.
+- Files are saved in `UPLOAD_DIR` and served at `/uploads/products/...`; the site forwards `/uploads` to the API.
+- Photos no product uses any more are deleted.
+- **Before going live:** many hosts wipe local disk on every deploy. Move uploads to Cloudinary (or similar) or a persistent disk.
