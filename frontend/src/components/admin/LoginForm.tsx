@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { ApiError, adminLogin } from "@/data/api";
 
 type Labels = {
   email: string;
@@ -9,26 +10,41 @@ type Labels = {
   show: string;
   hide: string;
   submit: string;
+  sending: string;
   missing: string;
-  pending: string;
-  demo: string;
+  wrong: string;
+  tooMany: string;
+  failed: string;
 };
 
 const input = "min-h-12 w-full rounded-xl border border-gold/60 bg-navy-deep px-4 text-base";
 
-/**
- * Design only. The backend must check the password and protect /admin on the
- * server; nothing typed here is sent or stored.
- */
+/** Signs in through the backend, which sets the session cookie, then opens the dashboard. */
 export default function LoginForm({ lang, t }: { lang: string; t: Labels }) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    setMessage(email.includes("@") && password ? t.pending : t.missing);
+    if (busy) return;
+    if (!email.includes("@") || !password) {
+      setMessage(t.missing);
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      await adminLogin(email, password);
+      router.replace(`/${lang}/admin`);
+    } catch (error) {
+      const status = error instanceof ApiError ? error.status : 0;
+      setMessage(status === 401 ? t.wrong : status === 422 ? t.missing : status === 429 ? t.tooMany : t.failed);
+      setBusy(false);
+    }
   }
 
   return (
@@ -46,9 +62,8 @@ export default function LoginForm({ lang, t }: { lang: string; t: Labels }) {
           </button>
         </div>
       </div>
-      <button type="submit" className="btn btn-solid w-full">{t.submit}</button>
+      <button type="submit" disabled={busy} className="btn btn-solid w-full disabled:opacity-60">{busy ? t.sending : t.submit}</button>
       <p role="status" className="min-h-6 text-center font-bold text-gold">{message}</p>
-      <Link className="block text-center underline opacity-85" href={`/${lang}/admin`}>{t.demo}</Link>
     </form>
   );
 }

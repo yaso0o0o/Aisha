@@ -8,8 +8,8 @@ import { hasLocale } from "../../dictionaries";
 export const metadata: Metadata = { title: "Aisha Dashboard", robots: { index: false, follow: false } };
 
 const words = {
-  ar: { title: "أهلًا بيكي", body: "سجلي دخول علشان تديري متجرك.", other: "English", email: "الإيميل", password: "الباسورد", show: "إظهار", hide: "إخفاء", submit: "تسجيل الدخول", missing: "اكتبي إيميل صحيح والباسورد.", pending: "تسجيل الدخول لسه مش متوصل بالباك.", demo: "ادخلي النسخة التجريبية" },
-  en: { title: "Welcome back", body: "Sign in to manage your store.", other: "العربية", email: "Email", password: "Password", show: "Show", hide: "Hide", submit: "Sign in", missing: "Enter a valid email and your password.", pending: "Sign-in is not connected to the backend yet.", demo: "Open the demo dashboard" },
+  ar: { title: "أهلًا بيكي", body: "سجلي دخول علشان تديري متجرك.", other: "English", email: "الإيميل", password: "الباسورد", show: "إظهار", hide: "إخفاء", submit: "تسجيل الدخول", sending: "لحظة...", missing: "اكتبي إيميل صحيح والباسورد.", wrong: "الإيميل أو الباسورد مش صح.", tooMany: "محاولات كتير. استني ربع ساعة وجربي تاني.", failed: "مقدرناش نوصل للسيرفر. جربي تاني." },
+  en: { title: "Welcome back", body: "Sign in to manage your store.", other: "العربية", email: "Email", password: "Password", show: "Show", hide: "Hide", submit: "Sign in", sending: "One moment...", missing: "Enter a valid email and your password.", wrong: "Wrong email or password.", tooMany: "Too many attempts. Wait 15 minutes and try again.", failed: "Could not reach the server. Try again." },
 };
 
 export default async function LoginPage({ params }: PageProps<"/[lang]/admin/login">) {
