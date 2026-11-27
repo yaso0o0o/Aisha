@@ -76,3 +76,45 @@ export async function uploadImage(file: File) {
 }
 
 export const totalStock = (p: Pick<ApiProduct, "variants">) => p.variants.reduce((sum, v) => sum + v.stock, 0);
+
+/* ---------- shipping zones ---------- */
+
+export type AdminZone = { id: string; nameAr: string; nameEn: string; price: number; active: boolean; sort: number };
+
+export const listZones = () => api<AdminZone[]>("/admin/shipping-zones");
+
+export const createZone = (z: Pick<AdminZone, "nameAr" | "nameEn" | "price">) =>
+  api<AdminZone>("/admin/shipping-zones", { method: "POST", body: JSON.stringify(z) });
+
+export const updateZone = (id: string, patch: Partial<Omit<AdminZone, "id">>) =>
+  api<AdminZone>(`/admin/shipping-zones/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+
+export const deleteZone = (id: string) => api<void>(`/admin/shipping-zones/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+/** Active zones for the checkout. */
+export type ShopZone = { id: string; name: { ar: string; en: string }; price: number };
+
+export const shopZones = () => api<ShopZone[]>("/shipping-zones");
+
+/* ---------- coupons ---------- */
+
+export type AdminCoupon = { id: string; code: string; percent: number; minTotal: number; validUntil: string | null; active: boolean };
+
+export const listCoupons = () => api<AdminCoupon[]>("/admin/coupons");
+
+export const createCoupon = (c: Omit<AdminCoupon, "id" | "active">) =>
+  api<AdminCoupon>("/admin/coupons", { method: "POST", body: JSON.stringify(c) });
+
+export const updateCoupon = (id: string, patch: Partial<Omit<AdminCoupon, "id">>) =>
+  api<AdminCoupon>(`/admin/coupons/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+
+export const deleteCoupon = (id: string) => api<void>(`/admin/coupons/${id}`, { method: "DELETE" });
+
+export type CouponCheck =
+  | { valid: true; code: string; percent: number; discount: number }
+  | { valid: false; reason: "invalid" }
+  | { valid: false; reason: "below_minimum"; minTotal: number };
+
+/** Asks the server if a code works on this products total. */
+export const checkCoupon = (code: string, subtotal: number) =>
+  api<CouponCheck>("/coupons/check", { method: "POST", body: JSON.stringify({ code, subtotal }) });

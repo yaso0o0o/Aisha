@@ -1,34 +1,7 @@
-// Orders, coupons, shipping and InstaPay, still kept in this browser only (a demo).
-// Products already come from the backend. The backend must take over every function here,
+// Orders and InstaPay, still kept in this browser only (a demo).
+// Products, shipping zones and coupons already come from the backend. The backend must take over every function here,
 // especially placeOrder: only a server can stop two customers buying the same last piece.
 import { createStore } from "./store";
-
-/* ---------- coupons and shipping ---------- */
-
-export type Coupon = { code: string; percent: number; min: number; until: string; active: boolean };
-export type Zone = { id: string; nameAr: string; nameEn: string; price: number };
-
-export const couponStore = createStore<Coupon>("aisha-coupons", []);
-
-// Sample shipping prices until the owner sets the real ones.
-export const zoneStore = createStore<Zone>("aisha-zones", [
-  { id: "cairo", nameAr: "القاهرة والجيزة", nameEn: "Cairo and Giza", price: 60 },
-  { id: "alex", nameAr: "الإسكندرية", nameEn: "Alexandria", price: 75 },
-  { id: "egypt", nameAr: "باقي المحافظات", nameEn: "Other governorates", price: 100 },
-  { id: "world", nameAr: "خارج مصر", nameEn: "Outside Egypt", price: 900 },
-]);
-
-/** The coupon for this code if it can be used on this subtotal today. */
-export function findCoupon(coupons: Coupon[], code: string, subtotal: number) {
-  const today = new Date().toLocaleDateString("en-CA");
-  return coupons.find(
-    (c) =>
-      c.code === code.trim().toUpperCase() &&
-      c.active &&
-      subtotal >= c.min &&
-      (!c.until || c.until >= today),
-  );
-}
 
 /* ---------- InstaPay ---------- */
 
@@ -93,8 +66,9 @@ export class StockError extends Error {
 }
 
 type NewOrder = Pick<Order, "name" | "phone" | "address" | "payment" | "proof"> & {
-  zoneId: string;
-  code: string;
+  /** The zone and coupon as the server returned them at checkout. */
+  zone: { nameAr: string; price: number };
+  coupon: { code: string; discount: number } | null;
   /** Built by the cart from the server prices; key is the variant id. */
   lines: OrderLine[];
 };
@@ -103,15 +77,12 @@ type NewOrder = Pick<Order, "name" | "phone" | "address" | "payment" | "proof"> 
  * DEMO until POST /orders exists: records the order in this browser only.
  * It does not touch stock; the server will check and take stock in one transaction.
  */
-export function placeOrder({ lines, zoneId, code, proof, ...customer }: NewOrder): Order {
+export function placeOrder({ lines, zone, coupon, proof, ...customer }: NewOrder): Order {
   const transfer = customer.payment === "instapay";
   if (transfer && !proof) throw new Error("missing transfer screenshot");
 
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
-  const coupon = findCoupon(couponStore.refresh(), code, subtotal);
-  const discount = coupon ? Math.round((subtotal * coupon.percent) / 100) : 0;
-  const zone = zoneStore.refresh().find((z) => z.id === zoneId);
-  if (!zone) throw new Error("unknown shipping zone");
+  const discount = coupon?.discount ?? 0;
 
   const order: Order = {
     ...customer,

@@ -29,6 +29,11 @@ API on http://localhost:4000, check `GET /health`.
 | GET, POST | `/admin/products` | all products (hidden too), create |
 | GET, PATCH, DELETE | `/admin/products/:id` | one product; PATCH needs `updatedAt`; DELETE archives a product with past orders |
 | POST | `/admin/uploads` | `multipart`, field `file`, returns `{ url }` |
+| GET, POST | `/admin/shipping-zones` | all zones (paused too), add |
+| PATCH, DELETE | `/admin/shipping-zones/:id` | edit price/name/active, delete |
+| GET, POST | `/admin/coupons` | all coupons, add (code saved in capitals) |
+| PATCH, DELETE | `/admin/coupons/:id` | edit, pause, delete |
+| POST | `/coupons/check` | `{ code, subtotal }` -> `{ valid, discount }` (20 a minute per IP) |
 
 All prices, stock and shipping prices in the seed are samples.
 

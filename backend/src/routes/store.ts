@@ -1,7 +1,11 @@
 // Public shop endpoints (no login). Spec section 6, "المتجر".
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
+import { z } from "zod";
+import { checkCoupon } from "../coupons.js";
 import { prisma } from "../db.js";
 import { finalPrice } from "../pricing.js";
+import { invalid } from "../validate.js";
 
 export const store = Router();
 
@@ -80,4 +84,38 @@ store.get("/payment-methods", async (_req, res) => {
     ? { number: s.instapayNumber, name: s.instapayName }
     : null;
   res.json({ cod: true, instapay, wallet: true });
+});
+
+// 20 checks a minute per IP, so codes cannot be guessed by trying many.
+const couponLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "too_many_attempts" },
+});
+
+const couponBody = z.object({
+  code: z.string().trim().min(1).max(30),
+  subtotal: z.number().int().min(0).max(10_000_000),
+});
+
+/**
+ * Tells the customer if a code works on this products total. Only a guide for the page:
+ * the order endpoint checks the coupon again with its own prices.
+ */
+store.post("/coupons/check", couponLimit, async (req, res) => {
+  const body = couponBody.safeParse(req.body);
+  if (!body.success) return invalid(res, body.error);
+  const result = await checkCoupon(body.data.code, body.data.subtotal);
+  if (result.ok) {
+    res.json({ valid: true, code: result.coupon.code, percent: result.coupon.percent, discount: result.discount });
+  } else if (result.problem === "below_minimum") {
+    // Worth telling: the customer can add more to use it.
+    const c = await prisma.coupon.findUnique({ where: { code: body.data.code.trim().toUpperCase() } });
+    res.json({ valid: false, reason: "below_minimum", minTotal: c?.minTotal ?? 0 });
+  } else {
+    // Unknown, paused and expired look the same, so codes cannot be discovered.
+    res.json({ valid: false, reason: "invalid" });
+  }
 });
