@@ -1,0 +1,14 @@
+# Local database only. Production uses a hosted PostgreSQL.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: aisha
+      POSTGRES_PASSWORD: aisha
+      POSTGRES_DB: aisha
+    ports:
+      - "5432:5432"
+    volumes:
+      - aisha-db:/var/lib/postgresql/data
+volumes:
+  aisha-db:
