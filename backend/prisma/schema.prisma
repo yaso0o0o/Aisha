@@ -1,0 +1,222 @@
+// Aisha Gallery database. Follows docs/backend-spec.md section 4.
+// Money is whole Egyptian pounds (Int). Text shown to customers has Arabic and English.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  new
+  confirmed
+  shipped
+  delivered
+  cancelled
+}
+
+enum PaymentMethod {
+  cod
+  instapay
+  wallet
+}
+
+enum TransferStatus {
+  awaiting
+  approved
+  rejected
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  auditLogs AuditLog[]
+
+  @@map("admins")
+}
+
+model Category {
+  id       String @id @default(cuid())
+  slug     String @unique
+  nameAr   String @map("name_ar")
+  nameEn   String @map("name_en")
+  imageUrl String @map("image_url")
+  sort     Int    @default(0)
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  categoryId      String    @map("category_id")
+  nameAr          String    @map("name_ar")
+  nameEn          String    @map("name_en")
+  price           Int
+  /// Percent off, 0 means no discount.
+  discountPercent Int       @default(0) @map("discount_percent")
+  /// Made-to-order products never run out and are not taken from stock.
+  madeToOrder     Boolean   @default(false) @map("made_to_order")
+  leadDays        Int?      @map("lead_days")
+  hidden          Boolean   @default(false)
+  /// Set instead of deleting a product that was ordered before.
+  archivedAt      DateTime? @map("archived_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  category   Category       @relation(fields: [categoryId], references: [id])
+  images     ProductImage[]
+  variants   Variant[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String @id @default(cuid())
+  productId String @map("product_id")
+  url       String
+  sort      Int    @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+/// Every product has at least one variant. Empty colour and size means "the piece itself".
+model Variant {
+  id        String @id @default(cuid())
+  productId String @map("product_id")
+  colorAr   String @default("") @map("color_ar")
+  colorEn   String @default("") @map("color_en")
+  size      String @default("")
+  stock     Int    @default(0)
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([productId, colorEn, size])
+  @@map("variants")
+}
+
+model Coupon {
+  id         String    @id @default(cuid())
+  /// Always stored upper case.
+  code       String    @unique
+  /// 1 to 90, applied to products only, never shipping.
+  percent    Int
+  minTotal   Int       @default(0) @map("min_total")
+  /// Last day the coupon works, Cairo time. Null means no end date.
+  validUntil DateTime? @map("valid_until") @db.Date
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("coupons")
+}
+
+model ShippingZone {
+  /// Short readable id such as "cairo", used by the frontend.
+  id     String  @id
+  nameAr String  @map("name_ar")
+  nameEn String  @map("name_en")
+  price  Int
+  active Boolean @default(true)
+  sort   Int     @default(0)
+
+  orders Order[]
+
+  @@map("shipping_zones")
+}
+
+model Order {
+  id             String          @id @default(cuid())
+  /// Short code the customer sees, e.g. A1B2C3.
+  code           String          @unique
+  /// Long random secret; the code alone never reveals an order.
+  accessToken    String          @unique @map("access_token")
+  /// Sent by the frontend so a double click creates one order, not two.
+  idempotencyKey String?         @unique @map("idempotency_key")
+  name           String
+  phone          String
+  address        String
+  zoneId         String?         @map("zone_id")
+  /// Copied at order time so renaming a zone does not change old orders.
+  zoneName       String          @map("zone_name")
+  paymentMethod  PaymentMethod   @map("payment_method")
+  subtotal       Int
+  discount       Int             @default(0)
+  couponCode     String?         @map("coupon_code")
+  shipping       Int
+  total          Int
+  status         OrderStatus     @default(new)
+  paid           Boolean         @default(false)
+  transferStatus TransferStatus? @map("transfer_status")
+  /// Private storage key of the transfer screenshot, never a public link.
+  proofUrl       String?         @map("proof_url")
+  /// Set once when stock is returned, so it is never returned twice.
+  stockReturnedAt DateTime?      @map("stock_returned_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  zone  ShippingZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  items OrderItem[]
+
+  @@index([status])
+  @@index([transferStatus])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+/// Name and price are copied at purchase time.
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  productId String? @map("product_id")
+  variantId String? @map("variant_id")
+  name      String
+  /// Colour / size label, e.g. "أبيض / M".
+  label     String  @default("")
+  unitPrice Int     @map("unit_price")
+  qty       Int
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant Variant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+/// One row only (id = 1).
+model Settings {
+  id             Int      @id @default(1)
+  instapayNumber String   @default("") @map("instapay_number")
+  instapayName   String   @default("") @map("instapay_name")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+/// Who changed sensitive things (like the InstaPay number) and when.
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String?  @map("admin_id")
+  action    String
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  admin Admin? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}
