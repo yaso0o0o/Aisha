@@ -1,85 +1,7 @@
-// Shop and dashboard data, kept in this browser only until the API exists.
-// The backend must take over every function here, especially placeOrder:
-// only a server can stop two customers buying the same last piece.
-import { products, type CategoryId } from "./products";
+// Orders, coupons, shipping and InstaPay, still kept in this browser only (a demo).
+// Products already come from the backend. The backend must take over every function here,
+// especially placeOrder: only a server can stop two customers buying the same last piece.
 import { createStore } from "./store";
-
-export type AdminProduct = {
-  slug: string;
-  nameAr: string;
-  nameEn: string;
-  category: CategoryId;
-  image: string;
-  price: number;
-  /** Percent off, 0 means no discount. */
-  discount: number;
-  colors: string[];
-  sizes: string[];
-  madeToOrder: boolean;
-  days: number;
-  /** Stock per variant, keyed by variantKey. */
-  stock: Record<string, number>;
-  hidden: boolean;
-};
-
-export const variantKey = (color = "", size = "") => `${color}|${size}`;
-
-/** Every colour/size combination; a product with neither still has one. */
-export const variants = (p: Pick<AdminProduct, "colors" | "sizes">) =>
-  (p.colors.length ? p.colors : [""]).flatMap((color) =>
-    (p.sizes.length ? p.sizes : [""]).map((size) => ({
-      key: variantKey(color, size),
-      label: [color, size].filter(Boolean).join(" / ") || "القطعة",
-    })),
-  );
-
-export const totalStock = (p: AdminProduct) =>
-  variants(p).reduce((sum, v) => sum + (p.stock[v.key] ?? 0), 0);
-
-export const soldOut = (p: AdminProduct) => !p.madeToOrder && totalStock(p) === 0;
-
-/** How many of this variant can still be ordered. */
-export const available = (p: AdminProduct, key: string) =>
-  p.hidden ? 0 : p.madeToOrder ? 99 : (p.stock[key] ?? 0);
-
-export const finalPrice = (p: Pick<AdminProduct, "price" | "discount">) =>
-  Math.round(p.price * (1 - p.discount / 100));
-
-const SAMPLE_STOCK = 3;
-
-const seed: AdminProduct[] = products.map((p) => {
-  const base = {
-    slug: p.slug,
-    nameAr: p.name.ar,
-    nameEn: p.name.en,
-    category: p.category,
-    image: p.image,
-    price: p.price,
-    discount: 0,
-    colors: p.colors?.map((c) => c.ar) ?? [],
-    sizes: p.sizes ?? [],
-    madeToOrder: Boolean(p.madeToOrderDays),
-    days: p.madeToOrderDays ?? 14,
-    hidden: false,
-  };
-  return { ...base, stock: Object.fromEntries(variants(base).map((v) => [v.key, SAMPLE_STOCK])) };
-});
-
-const productStore = createStore<AdminProduct>("aisha-admin-products", seed);
-
-export const useAdminProducts = productStore.useList;
-
-export function saveProduct(product: AdminProduct) {
-  const list = productStore.refresh();
-  productStore.write(
-    list.some((p) => p.slug === product.slug)
-      ? list.map((p) => (p.slug === product.slug ? product : p))
-      : [product, ...list],
-  );
-}
-
-export const removeProduct = (slug: string) =>
-  productStore.write(productStore.refresh().filter((p) => p.slug !== slug));
 
 /* ---------- coupons and shipping ---------- */
 
@@ -173,22 +95,17 @@ export class StockError extends Error {
 type NewOrder = Pick<Order, "name" | "phone" | "address" | "payment" | "proof"> & {
   zoneId: string;
   code: string;
-  items: { slug: string; key: string; qty: number }[];
+  /** Built by the cart from the server prices; key is the variant id. */
+  lines: OrderLine[];
 };
 
-/** Re-checks stock, takes the pieces out of it, then records the order. */
-export function placeOrder({ items, zoneId, code, proof, ...customer }: NewOrder): Order {
+/**
+ * DEMO until POST /orders exists: records the order in this browser only.
+ * It does not touch stock; the server will check and take stock in one transaction.
+ */
+export function placeOrder({ lines, zoneId, code, proof, ...customer }: NewOrder): Order {
   const transfer = customer.payment === "instapay";
   if (transfer && !proof) throw new Error("missing transfer screenshot");
-  const catalogue = productStore.refresh().map((p) => ({ ...p, stock: { ...p.stock } }));
-
-  const lines = items.map(({ slug, key, qty }) => {
-    const p = catalogue.find((x) => x.slug === slug);
-    if (!p || available(p, key) < qty) throw new StockError(slug);
-    if (!p.madeToOrder) p.stock[key] -= qty;
-    const label = variants(p).find((v) => v.key === key)?.label ?? "";
-    return { slug, name: p.nameAr, key, label, qty, price: finalPrice(p) };
-  });
 
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
   const coupon = findCoupon(couponStore.refresh(), code, subtotal);
@@ -210,9 +127,7 @@ export function placeOrder({ items, zoneId, code, proof, ...customer }: NewOrder
     paid: false,
     ...(transfer ? { proof, transfer: "awaiting" as const } : {}),
   };
-  // the order holds the screenshot, so it is the write most likely to fail: do it first
   orderStore.write([order, ...orderStore.refresh()]);
-  productStore.write(catalogue);
   return order;
 }
 
@@ -227,21 +142,10 @@ export function reviewTransfer(id: string, approved: boolean) {
   );
 }
 
-/** Cancelling puts the pieces back in stock, once. A cancelled order stays cancelled. */
+/** A cancelled order stays cancelled. Stock is returned by the server once orders use it. */
 export function updateOrder(id: string, patch: Partial<Pick<Order, "status" | "paid" | "transfer">>) {
   const orders = orderStore.refresh();
   const order = orders.find((o) => o.id === id);
   if (!order || order.status === "cancelled") return;
-  if (patch.status === "cancelled") {
-    productStore.write(
-      productStore.refresh().map((p) => {
-        const back = order.lines.filter((l) => l.slug === p.slug);
-        if (!back.length || p.madeToOrder) return p;
-        const stock = { ...p.stock };
-        back.forEach((l) => (stock[l.key] = (stock[l.key] ?? 0) + l.qty));
-        return { ...p, stock };
-      }),
-    );
-  }
   orderStore.write(orders.map((o) => (o.id === id ? { ...o, ...patch } : o)));
 }

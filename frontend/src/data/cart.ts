@@ -1,8 +1,8 @@
-// Cart kept in the browser until the API exists. Options are stored as indexes
-// so the cart reads correctly in either language.
+// Cart kept in the browser. Each line points at one variant (colour/size) by its
+// database id; price and stock are always read fresh from the server.
 import { useSyncExternalStore } from "react";
 
-export type CartLine = { slug: string; color?: number; size?: number; qty: number };
+export type CartLine = { slug: string; variantId: string; qty: number };
 
 const KEY = "aisha-cart";
 const EMPTY: CartLine[] = [];
@@ -21,7 +21,8 @@ function read(): CartLine[] {
     cachedRaw = raw;
     try {
       const parsed: unknown = JSON.parse(raw ?? "[]");
-      cached = Array.isArray(parsed) ? parsed : EMPTY;
+      // Lines saved before the shop used the server have no variantId; drop them.
+      cached = Array.isArray(parsed) ? parsed.filter((l) => typeof l?.variantId === "string") : EMPTY;
     } catch {
       cached = EMPTY;
     }
@@ -47,8 +48,7 @@ function subscribe(notify: () => void) {
   };
 }
 
-const same = (a: CartLine, b: CartLine) =>
-  a.slug === b.slug && a.color === b.color && a.size === b.size;
+const same = (a: CartLine, b: CartLine) => a.variantId === b.variantId;
 
 export const useCart = () => useSyncExternalStore(subscribe, read, () => EMPTY);
 

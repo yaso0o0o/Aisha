@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { couponStore, findCoupon, instapayStore, placeOrder, StockError, zoneStore, type Order } from "@/data/admin";
+import { couponStore, findCoupon, instapayStore, placeOrder, StockError, zoneStore, type Order, type OrderLine } from "@/data/admin";
 import { readPhoto } from "@/data/photo";
 import { formatPrice } from "@/data/products";
 
@@ -17,7 +17,7 @@ type Props = {
   lang: "ar" | "en";
   t: CheckoutLabels;
   totalLabel: string;
-  items: { slug: string; key: string; qty: number }[];
+  items: OrderLine[];
   subtotal: number;
   blocked: boolean;
   onPlaced: (order: Order) => void;
@@ -46,7 +46,7 @@ export default function Checkout({ lang, t, totalLabel, items, subtotal, blocked
     const instapay = form.payment === "instapay" && account;
     if (instapay && !proof) return setError(t.needProof);
     try {
-      onPlaced(placeOrder({ ...form, payment: instapay ? "instapay" : form.payment === "instapay" ? "cod" : form.payment, proof: instapay ? proof : undefined, phone, name: form.name.trim(), address: form.address.trim(), items }));
+      onPlaced(placeOrder({ ...form, payment: instapay ? "instapay" : form.payment === "instapay" ? "cod" : form.payment, proof: instapay ? proof : undefined, phone, name: form.name.trim(), address: form.address.trim(), lines: items }));
     } catch (err) {
       setError(err instanceof StockError ? t.stock : t.failed);
     }

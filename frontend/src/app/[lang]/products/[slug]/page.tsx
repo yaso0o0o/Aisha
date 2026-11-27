@@ -1,19 +1,27 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import Header from "@/components/Header";
 import ProductBuy from "@/components/ProductBuy";
-import { products } from "@/data/products";
+import { getProduct } from "@/data/shop";
 import { getDictionary, hasLocale } from "../../dictionaries";
 
-export function generateStaticParams() {
-  return products.map((p) => ({ slug: p.slug }));
+export default function ProductPage({ params }: PageProps<"/[lang]/products/[slug]">) {
+  return (
+    <Suspense fallback={<main aria-busy="true" className="signs min-h-svh" />}>
+      <Product params={params} />
+    </Suspense>
+  );
 }
 
-export default async function ProductPage({ params }: PageProps<"/[lang]/products/[slug]">) {
+/** Read from the backend on every visit, so price and stock are never out of date. */
+async function Product({ params }: Pick<PageProps<"/[lang]/products/[slug]">, "params">) {
   const { lang, slug } = await params;
-  const product = products.find((p) => p.slug === slug);
-  if (!hasLocale(lang) || !product) notFound();
+  if (!hasLocale(lang)) notFound();
+  const product = await getProduct(slug);
+  if (!product) notFound();
   const t = await getDictionary(lang);
+  const image = product.images[0];
 
   return (
     <>
@@ -21,11 +29,11 @@ export default async function ProductPage({ params }: PageProps<"/[lang]/product
       <main className="signs min-h-svh px-6 pt-28 pb-20">
         <div className="wrap grid items-start gap-10 md:grid-cols-2">
           <div className="relative mx-auto aspect-[3/4] w-full max-w-md overflow-hidden rounded-t-full rounded-b-2xl border border-gold/60">
-            <Image src={product.image} alt={product.name[lang]} fill preload sizes="(min-width: 768px) 448px, 100vw" className="object-cover" />
+            {image && <Image src={image} alt={product.name[lang]} fill preload sizes="(min-width: 768px) 448px, 100vw" className="object-cover" />}
           </div>
           <div className="md:pt-16">
             <h1 className="font-display text-4xl font-bold leading-snug">{product.name[lang]}</h1>
-            <ProductBuy key={slug} slug={slug} lang={lang} t={t.product} />
+            <ProductBuy key={slug} product={product} lang={lang} t={t.product} />
           </div>
         </div>
       </main>

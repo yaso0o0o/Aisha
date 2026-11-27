@@ -33,6 +33,8 @@ store.get("/products", async (req, res) => {
       finalPrice: finalPrice(p.price, p.discountPercent),
       madeToOrder: p.madeToOrder,
       soldOut: !p.madeToOrder && p.variants.every((v) => v.stock <= 0),
+      // Colour names help the shop search find "red bag".
+      colors: [...new Map(p.variants.filter((v) => v.colorEn).map((v) => [v.colorEn, { ar: v.colorAr, en: v.colorEn }])).values()],
     })),
   );
 });
