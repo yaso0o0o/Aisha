@@ -162,6 +162,7 @@ export type CustomerOrder = {
   total: number;
   items: OrderItem[];
   createdAt: string;
+  history?: { kind: string; at: string }[];
 };
 
 export type NewOrder = {

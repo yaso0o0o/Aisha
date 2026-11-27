@@ -4,7 +4,9 @@ import type { CustomerOrder } from "@/data/api";
 
 export type StatusLabels = Record<
   | "mine" | "title" | "none" | "awaiting" | "approved" | "rejected"
-  | "new" | "confirmed" | "shipped" | "delivered" | "cancelled",
+  | "new" | "confirmed" | "shipped" | "delivered" | "cancelled"
+  | "history" | "copyLink" | "copied" | "linkNote" | "stepNew" | "stepConfirmed" | "stepShipped"
+  | "stepDelivered" | "stepCancelled" | "stepApproved" | "stepRejected",
   string
 >;
 

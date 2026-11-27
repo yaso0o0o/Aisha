@@ -183,13 +183,28 @@ model Order {
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
-  zone  ShippingZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  items OrderItem[]
+  zone   ShippingZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  items  OrderItem[]
+  events OrderEvent[]
 
   @@index([status])
   @@index([transferStatus])
   @@index([createdAt])
   @@map("orders")
+}
+
+/// One row per change the customer can follow: placed, confirmed, shipped...
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  /// An order status, or "approved" / "rejected" for the InstaPay decision.
+  kind      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_events")
 }
 
 /// Name and price are copied at purchase time.

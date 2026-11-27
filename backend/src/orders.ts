@@ -39,7 +39,10 @@ const newCode = () =>
   Array.from(randomBytes(6), (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
 
 /** What the customer may see about their order. */
-export const orderInclude = { items: true } satisfies Prisma.OrderInclude;
+export const orderInclude = {
+  items: true,
+  events: { orderBy: { createdAt: "asc" } },
+} satisfies Prisma.OrderInclude;
 type FullOrder = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
 
 export const publicOrder = (o: FullOrder) => ({
@@ -56,6 +59,7 @@ export const publicOrder = (o: FullOrder) => ({
   total: o.total,
   items: o.items.map((i) => ({ name: i.name, label: i.label, qty: i.qty, unitPrice: i.unitPrice })),
   createdAt: o.createdAt.toISOString(),
+  history: o.events.map((e) => ({ kind: e.kind, at: e.createdAt.toISOString() })),
 });
 
 /** Returns the existing order for this key, if the customer already sent it. */
@@ -160,6 +164,7 @@ export async function placeOrder(input: NewOrder) {
           transferStatus: transfer ? "awaiting" : null,
           proofUrl: transfer ? input.proof : null,
           items: { create: lines },
+          events: { create: { kind: "new" } },
         },
         include: orderInclude,
       });
@@ -195,6 +200,8 @@ async function cancelInTx(tx: Tx, orderId: string, extra: Prisma.OrderUpdateMany
     data: { ...extra, status: "cancelled", stockReturnedAt: new Date() },
   });
   if (count === 0) return false;
+  // a rejected transfer says why the order stopped; otherwise it was cancelled
+  await tx.orderEvent.create({ data: { orderId, kind: extra.transferStatus === "rejected" ? "rejected" : "cancelled" } });
   const items = await tx.orderItem.findMany({ where: { orderId, stockTaken: true, variantId: { not: null } } });
   for (const item of items) {
     await tx.variant.updateMany({ where: { id: item.variantId! }, data: { stock: { increment: item.qty } } });
@@ -232,6 +239,10 @@ export async function updateOrder(id: string, patch: { status?: OrderStatus; pai
         data: patch,
       });
       if (count === 0) throw new OrderError(409, { error: "cancelled" });
+      // only a real change of status goes in the history, not "money received" ticks
+      if (patch.status !== undefined && patch.status !== order.status) {
+        await tx.orderEvent.create({ data: { orderId: id, kind: patch.status } });
+      }
     }
     return tx.order.findUniqueOrThrow({ where: { id }, include: orderInclude });
   });
@@ -251,6 +262,7 @@ export async function reviewTransfer(id: string, approved: boolean) {
         data: { transferStatus: "approved", paid: true, status: "confirmed" },
       });
       if (count === 0) throw new OrderError(409, { error: "already_decided" });
+      await tx.orderEvent.create({ data: { orderId: id, kind: "approved" } });
     } else if (!(await cancelInTx(tx, id, { transferStatus: "rejected" }))) {
       throw new OrderError(409, { error: "already_decided" });
     }

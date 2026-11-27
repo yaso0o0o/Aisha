@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { getOrder, type CustomerOrder } from "@/data/api";
-import { myOrders } from "@/data/mine";
+import { myOrders, rememberOrder } from "@/data/mine";
 import { formatPrice } from "@/data/products";
+import OrderHistory from "./OrderHistory";
 import OrderStatus, { type StatusLabels } from "./OrderStatus";
 
 /** How often the page asks the server again while it is open. */
@@ -14,6 +15,15 @@ export default function MyOrders({ lang, t }: { lang: "ar" | "en"; t: StatusLabe
   const saved = myOrders.useList();
   const [orders, setOrders] = useState<CustomerOrder[] | null>(null);
   const wanted = saved.map((o) => `${o.code}:${o.token}`).join(",");
+  const [copied, setCopied] = useState("");
+
+  // A tracking link opened on another device: keep the order, then drop the secret from the address.
+  useEffect(() => {
+    const match = /^#track=([A-Z0-9]+)\.([\w-]+)$/.exec(window.location.hash);
+    if (!match) return;
+    rememberOrder({ code: match[1], token: match[2] });
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -45,6 +55,21 @@ export default function MyOrders({ lang, t }: { lang: "ar" | "en"; t: StatusLabe
           </p>
           <p className="text-sm opacity-80">{o.items.map((l) => `${l.name} × ${l.qty}`).join("، ")}</p>
           <OrderStatus order={o} t={t} />
+          <OrderHistory history={o.history ?? []} lang={lang} t={t} />
+          <button
+            type="button"
+            className="btn btn-line mt-4"
+            onClick={() => {
+              const token = saved.find((s) => s.code === o.code)?.token;
+              if (!token) return;
+              // after "#" the secret never reaches server logs
+              const link = `${window.location.origin}/${lang}/orders#track=${o.code}.${token}`;
+              navigator.clipboard?.writeText(link).then(() => setCopied(o.code), () => {});
+            }}
+          >
+            {copied === o.code ? t.copied : t.copyLink}
+          </button>
+          <p className="mt-2 text-sm opacity-70">{t.linkNote}</p>
         </li>
       ))}
     </ul>
