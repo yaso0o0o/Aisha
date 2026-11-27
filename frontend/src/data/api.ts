@@ -66,10 +66,30 @@ export const updateProduct = (id: string, patch: Partial<ProductInput> & { updat
 export const deleteProduct = (id: string) =>
   api<{ archived: boolean }>(`/admin/products/${id}`, { method: "DELETE" });
 
+/**
+ * Hosting refuses request bodies over 4.5 MB and phone photos are often bigger,
+ * so large ones are shrunk first. The server still checks and re-encodes them.
+ */
+async function shrinkImage(file: File) {
+  if (file.size <= 3 * 1024 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, "image/jpeg", 0.85));
+    return blob ? new File([blob], "photo.jpg", { type: "image/jpeg" }) : file;
+  } catch {
+    return file; // not an image the browser can read: let the server say so
+  }
+}
+
 /** Uploads a product photo and returns the address to show it from. */
 export async function uploadImage(file: File) {
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", await shrinkImage(file));
   const res = await fetch("/api/admin/uploads", { method: "POST", body: form, credentials: "same-origin" });
   if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
   return ((await res.json()) as { url: string }).url;
@@ -161,7 +181,7 @@ export async function sendOrder(order: NewOrder, proof?: File) {
   if (!proof) return api<CustomerOrder & { token: string }>("/orders", { method: "POST", body: JSON.stringify(order) });
   const form = new FormData();
   form.append("order", JSON.stringify(order));
-  form.append("proof", proof);
+  form.append("proof", await shrinkImage(proof));
   const res = await fetch("/api/orders", { method: "POST", body: form, credentials: "same-origin" });
   if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
   return (await res.json()) as CustomerOrder & { token: string };

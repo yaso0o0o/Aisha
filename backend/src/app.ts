@@ -41,3 +41,6 @@ const onError: ErrorRequestHandler = (err, _req, res, _next) => {
   res.status(500).json({ error: "server_error" });
 };
 app.use(onError);
+
+// Vercel runs the app from this default export; src/index.ts is for a normal server.
+export default app;

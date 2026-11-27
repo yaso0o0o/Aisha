@@ -51,6 +51,11 @@ All prices, stock and shipping prices in the seed are samples.
 - The frontend must call the API with `credentials: "include"`.
 - In production set `NODE_ENV=production` and `TRUST_PROXY` to the number of proxies in front of the API.
 
+## Deploy on Vercel
+Root directory `backend`; the app is the default export of `src/app.ts`. The build runs `vercel-build` (client + migrations).
+Environment: `DATABASE_URL`, `CLOUDINARY_URL` (required, there is no writable disk), `FRONTEND_ORIGIN` (the site's exact address), `TRUST_PROXY=1`.
+Request bodies over 4.5 MB are refused, so the site shrinks large photos before sending. Rate limits are kept per function instance.
+
 ## Product photos
 - Uploads are decoded and saved again as WebP (max 1600 px, 8 MB upload limit), so only real images are kept and phone metadata (like location) is removed.
 - Files are saved in `UPLOAD_DIR` and served at `/uploads/products/...`; the site forwards `/uploads` to the API.
