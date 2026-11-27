@@ -1,10 +1,15 @@
-import type { Metadata } from "next";
-import { Cairo } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Cairo, El_Messiri } from "next/font/google";
 import { notFound } from "next/navigation";
+import Footer from "@/components/Footer";
+import ServiceWorker from "@/components/ServiceWorker";
 import { getDictionary, hasLocale, locales } from "./dictionaries";
 import "./globals.css";
 
 const cairo = Cairo({ variable: "--font-cairo", subsets: ["arabic", "latin"] });
+const messiri = El_Messiri({ variable: "--font-messiri", subsets: ["arabic", "latin"] });
+
+export const viewport: Viewport = { themeColor: "#18163e" };
 
 export function generateStaticParams() {
   return locales.map((lang) => ({ lang }));
@@ -26,13 +31,20 @@ export default async function RootLayout({
   const { lang } = await params;
   if (!hasLocale(lang)) notFound();
 
+  const t = await getDictionary(lang);
+
   return (
     <html
       lang={lang}
       dir={lang === "ar" ? "rtl" : "ltr"}
-      className={`${cairo.variable} h-full antialiased`}
+      className={`${cairo.variable} ${messiri.variable} antialiased`}
+      data-scroll-behavior="smooth"
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body>
+        {children}
+        <Footer lang={lang} nav={t.nav} t={t.footer} />
+        <ServiceWorker />
+      </body>
     </html>
   );
 }
