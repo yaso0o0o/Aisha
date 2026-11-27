@@ -1,6 +1,135 @@
 {
   "title": "Aisha Gallery",
-  "description": "Handmade products made by strong Egyptian women",
-  "comingSoon": "Store coming soon",
-  "switchLanguage": "العربية"
+  "description": "Handmade products made by strong Egyptian women, shipped worldwide",
+  "switchLanguage": "العربية",
+  "nav": {
+    "story": "Our story",
+    "products": "Products",
+    "order": "How to order",
+    "cart": "Cart",
+    "search": "Search products",
+    "orders": "My orders"
+  },
+  "hero": {
+    "headline": "An Egyptian woman behind every stitch",
+    "body": "Handmade clothing, shawls and bags, shipped to you anywhere in the world.",
+    "primary": "See the collections",
+    "secondary": "Message us on WhatsApp"
+  },
+  "story": {
+    "title": "Made by hand, not by a line",
+    "body": "Each piece is made slowly by strong Egyptian women, so no two come out exactly the same.",
+    "captions": [
+      "Stitch by stitch",
+      "The finished piece",
+      "A story on fabric"
+    ]
+  },
+  "collections": {
+    "title": "Collections",
+    "all": "All products"
+  },
+  "order": {
+    "title": "Your order in three steps",
+    "steps": [
+      {
+        "title": "Pick your piece",
+        "body": "Choose a colour and size where the piece has them."
+      },
+      {
+        "title": "Confirm",
+        "body": "Send your details and agree on payment."
+      },
+      {
+        "title": "Receive",
+        "body": "We ship within Egypt and abroad."
+      }
+    ]
+  },
+  "closing": {
+    "title": "Found something you love?",
+    "body": "Message us on WhatsApp and we will help you choose.",
+    "cta": "Start a chat"
+  },
+  "product": {
+    "color": "Colour",
+    "size": "Size",
+    "madeToOrder": "Made to order in about {days} days",
+    "add": "Add to cart",
+    "added": "Added to your cart.",
+    "view": "View cart",
+    "out": "Sold out",
+    "left": "Only {n} left",
+    "allInCart": "All available pieces are in your cart."
+  },
+  "wall": "Every piece tells a story",
+  "cart": {
+    "title": "Your cart",
+    "empty": "Your cart is empty.",
+    "browse": "Browse products",
+    "remove": "Remove",
+    "increase": "Increase quantity",
+    "decrease": "Decrease quantity",
+    "message": "Hello, I would like to order:",
+    "total": "Total"
+  },
+  "search": {
+    "label": "Search products",
+    "placeholder": "Search for a shawl, bag, dress...",
+    "all": "All",
+    "none": "No results. Try another word or choose All.",
+    "results": "Pieces",
+    "out": "Sold out"
+  },
+  "footer": {
+    "about": "Handmade products made by Egyptian women.",
+    "whatsapp": "WhatsApp",
+    "instagram": "Instagram",
+    "rights": "All rights reserved."
+  },
+  "checkout": {
+    "title": "Order details",
+    "name": "Name",
+    "phone": "Mobile number",
+    "address": "Full address",
+    "zone": "Shipping area",
+    "choose": "Choose an area",
+    "payment": "Payment",
+    "cod": "Cash on delivery",
+    "instapay": "InstaPay",
+    "wallet": "Mobile wallet",
+    "coupon": "Discount code",
+    "badCoupon": "This code does not apply to this order.",
+    "subtotal": "Items",
+    "discount": "Discount",
+    "shipping": "Shipping",
+    "confirm": "Place order",
+    "invalid": "Fill in your name, address, shipping area and a valid mobile number.",
+    "stock": "A piece in your cart is no longer available in that quantity. Update the cart and try again.",
+    "failed": "The order was not saved. Please try again.",
+    "done": "Your order is saved with number",
+    "send": "Send confirmation on WhatsApp",
+    "gone": "No longer available in this quantity",
+    "transferTo": "Send {total} by InstaPay to this number:",
+    "accountName": "Name",
+    "checkName": "Before you confirm the transfer, check that InstaPay shows this same name.",
+    "copy": "Copy number",
+    "copied": "Copied",
+    "proof": "Upload a screenshot of the transfer",
+    "needProof": "Upload the transfer screenshot before placing the order.",
+    "badFile": "This file is not a readable image. Try JPG or PNG."
+  },
+  "status": {
+    "mine": "Track my orders",
+    "title": "My orders",
+    "none": "No orders from this device yet.",
+    "awaiting": "Pending: we are checking that the transfer arrived.",
+    "approved": "Payment confirmed. Your order is confirmed.",
+    "rejected": "Payment could not be confirmed, so the order did not go through. If you did transfer, message us on WhatsApp.",
+    "new": "Order received, waiting for confirmation.",
+    "confirmed": "Your order is confirmed.",
+    "shipped": "Your order has shipped.",
+    "delivered": "Your order was delivered.",
+    "cancelled": "The order was cancelled."
+  }
 }
