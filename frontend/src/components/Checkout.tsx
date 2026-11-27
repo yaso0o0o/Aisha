@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { instapayStore, placeOrder, StockError, type Order, type OrderLine } from "@/data/admin";
-import { checkCoupon, shopZones, type CouponCheck, type ShopZone } from "@/data/api";
-import { readPhoto } from "@/data/photo";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  ApiError,
+  checkCoupon,
+  paymentMethods,
+  sendOrder,
+  shopZones,
+  type CouponCheck,
+  type CustomerOrder,
+  type PaymentMethods,
+  type PaymentName,
+  type ShopZone,
+} from "@/data/api";
 import { formatPrice } from "@/data/products";
 
 export type CheckoutLabels = Record<
   | "title" | "name" | "phone" | "address" | "zone" | "choose" | "payment" | "cod" | "instapay" | "wallet"
   | "coupon" | "badCoupon" | "couponMin" | "couponOk" | "noZones" | "subtotal" | "discount" | "shipping" | "confirm" | "invalid" | "stock"
   | "failed" | "done" | "send" | "gone" | "transferTo" | "accountName" | "checkName" | "copy" | "copied"
-  | "proof" | "needProof" | "badFile",
+  | "proof" | "needProof" | "badFile" | "sending" | "tooBig",
   string
 >;
 
@@ -18,38 +27,79 @@ type Props = {
   lang: "ar" | "en";
   t: CheckoutLabels;
   totalLabel: string;
-  items: OrderLine[];
+  items: { variantId: string; qty: number }[];
+  /** Products total as the cart shows it; the server computes the real one. */
   subtotal: number;
   blocked: boolean;
-  onPlaced: (order: Order) => void;
+  onPlaced: (order: CustomerOrder & { token: string }) => void;
+  /** Stock changed since the cart loaded: read it again. */
+  onStockChanged: () => void;
 };
 
 const input = "mt-1 min-h-12 w-full rounded-lg border border-gold/60 bg-navy-deep px-3 text-base";
 
-export default function Checkout({ lang, t, totalLabel, items, subtotal, blocked, onPlaced }: Props) {
+const newKey = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^\w-]/g, "");
+
+export default function Checkout({ lang, t, totalLabel, items, subtotal, blocked, onPlaced, onStockChanged }: Props) {
   const zones = useZones();
-  const [form, setForm] = useState({ name: "", phone: "", address: "", zoneId: "", code: "", payment: "cod" as Order["payment"] });
+  const methods = usePaymentMethods();
+  const [form, setForm] = useState({ name: "", phone: "", address: "", zoneId: "", code: "", payment: "cod" as PaymentName });
   const [error, setError] = useState("");
-  const [proof, setProof] = useState("");
+  const [proof, setProof] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
   const [copied, setCopied] = useState(false);
-  const account = instapayStore.useList()[0];
+  const [sending, setSending] = useState(false);
+  // Same order sent again (double click, lost answer) keeps its key, so the server returns
+  // the first order. Any change to the form or the cart makes it a new order with a new key.
+  const sent = useRef<{ order: string; key: string } | null>(null);
+  const account = methods?.instapay ?? null;
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
 
   const zone = zones?.find((z) => z.id === form.zoneId);
   const check = useCouponCheck(form.code, subtotal);
   const coupon = check?.valid ? check : null;
   const discount = coupon?.discount ?? 0;
+  const payment: PaymentName = form.payment === "instapay" && !account ? "cod" : form.payment;
 
-  function submit(e: FormEvent) {
+  useEffect(() => {
+    if (!proof) return;
+    const url = URL.createObjectURL(proof);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- preview follows the picked file
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [proof]);
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
+    if (sending) return;
     const phone = form.phone.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[\s-]/g, "");
-    if (!form.name.trim() || !form.address.trim() || !zone || !/^\+?\d{10,15}$/.test(phone)) return setError(t.invalid);
-    const instapay = form.payment === "instapay" && account;
-    if (instapay && !proof) return setError(t.needProof);
+    if (!form.name.trim() || form.address.trim().length < 5 || !zone || !/^\+?\d{10,15}$/.test(phone)) return setError(t.invalid);
+    if (payment === "instapay" && !proof) return setError(t.needProof);
+    setSending(true);
+    setError("");
+    // The server checks the coupon again, so it is sent even if the check above has not answered yet.
+    const body = { name: form.name.trim(), phone, address: form.address.trim(), zoneId: zone.id, payment, coupon: form.code.trim(), items };
+    const signature = JSON.stringify([body, proof?.name, proof?.size]);
+    if (sent.current?.order !== signature) sent.current = { order: signature, key: newKey() };
     try {
-      onPlaced(placeOrder({ zone: { nameAr: zone.name.ar, price: zone.price }, coupon: coupon && { code: coupon.code, discount }, payment: instapay ? "instapay" : form.payment === "instapay" ? "cod" : form.payment, proof: instapay ? proof : undefined, phone, name: form.name.trim(), address: form.address.trim(), lines: items }));
+      const order = await sendOrder(
+        { ...body, idempotencyKey: sent.current.key },
+        payment === "instapay" ? (proof ?? undefined) : undefined,
+      );
+      onPlaced(order);
     } catch (err) {
-      setError(err instanceof StockError ? t.stock : t.failed);
+      const status = err instanceof ApiError ? err.status : 0;
+      const code = err instanceof ApiError ? err.body.error : "";
+      if (status === 409) onStockChanged();
+      setError(
+        status === 409 ? t.stock
+          : code === "invalid_coupon" ? t.badCoupon
+            : code === "not_an_image" ? t.badFile
+              : status === 413 ? t.tooBig
+                : status === 422 && code !== "instapay_off" ? t.invalid
+                  : t.failed,
+      );
+      setSending(false);
     }
   }
 
@@ -90,7 +140,7 @@ export default function Checkout({ lang, t, totalLabel, items, subtotal, blocked
       </label>
       <label className="block">
         {t.payment}
-        <select className={input} value={form.payment} onChange={(e) => set({ payment: e.target.value as Order["payment"] })}>
+        <select className={input} value={payment} onChange={(e) => set({ payment: e.target.value as PaymentName })}>
           <option value="cod">{t.cod}</option>
           {account && <option value="instapay">{t.instapay}</option>}
           <option value="wallet">{t.wallet}</option>
@@ -123,7 +173,7 @@ export default function Checkout({ lang, t, totalLabel, items, subtotal, blocked
         </div>
       </dl>
 
-      {form.payment === "instapay" && account && (
+      {payment === "instapay" && account && (
         <div className="space-y-3 rounded-2xl border-2 border-gold p-5">
           <p>{t.transferTo.replace("{total}", formatPrice(total, lang))}</p>
           <p className="flex flex-wrap items-center gap-3">
@@ -144,28 +194,33 @@ export default function Checkout({ lang, t, totalLabel, items, subtotal, blocked
               type="file"
               accept="image/*"
               className={`${input} py-2`}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                setProof("");
-                if (!file) return;
-                try {
-                  setProof(await readPhoto(file, 1100));
-                  setError("");
-                } catch {
-                  setError(t.badFile);
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setPreview("");
+                setError("");
+                if (file && !file.type.startsWith("image/")) {
+                  setProof(null);
+                  return setError(t.badFile);
                 }
+                if (file && file.size > 8 * 1024 * 1024) {
+                  setProof(null);
+                  return setError(t.tooBig);
+                }
+                setProof(file);
               }}
             />
           </label>
-          {proof && (
-            // eslint-disable-next-line @next/next/no-img-element -- local data URL
-            <img src={proof} alt="" className="max-h-52 rounded-lg" />
+          {proof && preview && (
+            // eslint-disable-next-line @next/next/no-img-element -- local preview of the picked file
+            <img src={preview} alt="" className="max-h-52 rounded-lg" />
           )}
         </div>
       )}
 
       <p role="alert" className="min-h-6 font-bold text-gold">{blocked ? t.stock : error}</p>
-      <button type="submit" disabled={blocked} className="btn btn-solid w-full disabled:opacity-50 md:w-auto">{t.confirm}</button>
+      <button type="submit" disabled={blocked || sending} className="btn btn-solid w-full disabled:opacity-50 md:w-auto">
+        {sending ? t.sending : t.confirm}
+      </button>
     </form>
   );
 }
@@ -183,6 +238,21 @@ function useZones() {
     };
   }, []);
   return zones;
+}
+
+/** Which payment methods the shop offers, with the InstaPay number when it is set. */
+function usePaymentMethods() {
+  const [methods, setMethods] = useState<PaymentMethods | null>(null);
+  useEffect(() => {
+    let live = true;
+    paymentMethods()
+      .then((m) => live && setMethods(m))
+      .catch(() => live && setMethods({ cod: true, wallet: true, instapay: null }));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return methods;
 }
 
 /** Asks the server about the code a moment after the customer stops typing. */

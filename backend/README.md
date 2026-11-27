@@ -33,6 +33,13 @@ API on http://localhost:4000, check `GET /health`.
 | PATCH, DELETE | `/admin/shipping-zones/:id` | edit price/name/active, delete |
 | GET, POST | `/admin/coupons` | all coupons, add (code saved in capitals) |
 | PATCH, DELETE | `/admin/coupons/:id` | edit, pause, delete |
+| POST | `/orders` | new order: JSON, or `multipart` with `order` (JSON) and `proof` (InstaPay screenshot) |
+| GET | `/orders/:code?token=` | the customer's own order |
+| GET | `/admin/orders` | `?status=` and `?transfer=awaiting` |
+| PATCH | `/admin/orders/:id` | `{ status, paid }`; cancelling returns stock once |
+| POST | `/admin/orders/:id/transfer` | `{ approved }`, one decision on a waiting transfer |
+| GET | `/admin/orders/:id/proof` | the private transfer screenshot |
+| GET, PUT | `/admin/settings/instapay` | `{ number, name }`; every change is logged |
 | POST | `/coupons/check` | `{ code, subtotal }` -> `{ valid, discount }` (20 a minute per IP) |
 
 All prices, stock and shipping prices in the seed are samples.
@@ -49,3 +56,14 @@ All prices, stock and shipping prices in the seed are samples.
 - Files are saved in `UPLOAD_DIR` and served at `/uploads/products/...`; the site forwards `/uploads` to the API.
 - Photos no product uses any more are deleted.
 - **Before going live:** many hosts wipe local disk on every deploy. Move uploads to Cloudinary (or similar) or a persistent disk.
+
+## Orders
+- Stock check, stock taken and order saved happen in one transaction. Stock is taken with a
+  conditional update (`stock >= qty`), so two customers can never get the same last piece
+  (tested with 10 orders at the same moment).
+- The server computes every price, discount, shipping and total. Name and price are copied into the order.
+- Send the same `idempotencyKey` again and you get the first order back, not a second one.
+- Cancelling (or rejecting a transfer) returns the stock exactly once; a cancelled order stays cancelled.
+- The order code alone shows nothing: `GET /orders/:code` needs the long random token.
+- InstaPay screenshots are saved under `UPLOAD_DIR/private`, never served publicly.
+- **Open decision:** a waiting InstaPay transfer holds its stock until the owner decides. There is no time limit yet.

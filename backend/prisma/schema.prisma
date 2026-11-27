@@ -203,6 +203,8 @@ model OrderItem {
   label     String  @default("")
   unitPrice Int     @map("unit_price")
   qty       Int
+  /// True when this line took pieces from stock (not made to order), so a cancel returns exactly those.
+  stockTaken Boolean @default(false) @map("stock_taken")
 
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)

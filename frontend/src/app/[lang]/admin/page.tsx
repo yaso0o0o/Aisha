@@ -9,8 +9,8 @@ import { hasLocale } from "../dictionaries";
 export const metadata: Metadata = { title: "Aisha Dashboard", robots: { index: false, follow: false } };
 
 const words = {
-  ar: { title: "داش بورد Aisha", shop: "رجوع للمتجر", other: "English", demo: "المنتجات بتتحفظ على السيرفر دلوقتي. صفحات المتجر نفسها لسه مش بتقرا منه، فالتعديل مش هيبان للعملاء لحد ما نربطها. والطلبات والكوبونات والشحن والتحويلات لسه تجريبية على المتصفح ده بس." },
-  en: { title: "Aisha Dashboard", shop: "Back to the shop", other: "العربية", demo: "Products are now saved on the server. The shop pages do not read from it yet, so customers will not see changes until they are connected. Orders, coupons, shipping and transfers are still a demo kept in this browser only." },
+  ar: { title: "داش بورد Aisha", shop: "رجوع للمتجر", other: "English", demo: "كل حاجة هنا بتتحفظ على السيرفر. الأسعار والمخزون وأسعار الشحن لسه أرقام تجريبية لحد ما تحطي الحقيقية." },
+  en: { title: "Aisha Dashboard", shop: "Back to the shop", other: "العربية", demo: "Everything here is saved on the server. Prices, stock and shipping prices are still sample numbers until you enter the real ones." },
 };
 
 export default async function AdminPage({ params }: PageProps<"/[lang]/admin">) {

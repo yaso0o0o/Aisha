@@ -4,6 +4,7 @@ import express, { type ErrorRequestHandler } from "express";
 import helmet from "helmet";
 import { env } from "./env.js";
 import { admin } from "./routes/admin.js";
+import { orders } from "./routes/orders.js";
 import { store } from "./routes/store.js";
 import { productsDir } from "./uploads.js";
 
@@ -28,6 +29,7 @@ app.use(
 );
 
 app.use(store);
+app.use(orders);
 app.use(admin);
 
 app.use((_req, res) => {

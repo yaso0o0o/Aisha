@@ -118,3 +118,87 @@ export type CouponCheck =
 /** Asks the server if a code works on this products total. */
 export const checkCoupon = (code: string, subtotal: number) =>
   api<CouponCheck>("/coupons/check", { method: "POST", body: JSON.stringify({ code, subtotal }) });
+
+/* ---------- orders ---------- */
+
+export type OrderStatusName = "new" | "confirmed" | "shipped" | "delivered" | "cancelled";
+export type TransferStatus = "awaiting" | "approved" | "rejected";
+export type PaymentName = "cod" | "instapay" | "wallet";
+
+export type OrderItem = { name: string; label: string; qty: number; unitPrice: number };
+
+/** What a customer sees about their own order. */
+export type CustomerOrder = {
+  code: string;
+  status: OrderStatusName;
+  transfer: TransferStatus | null;
+  paid: boolean;
+  payment: PaymentName;
+  zone: string;
+  subtotal: number;
+  discount: number;
+  coupon: string | null;
+  shipping: number;
+  total: number;
+  items: OrderItem[];
+  createdAt: string;
+};
+
+export type NewOrder = {
+  name: string;
+  phone: string;
+  address: string;
+  zoneId: string;
+  payment: PaymentName;
+  coupon: string;
+  items: { variantId: string; qty: number }[];
+  /** Same key for the same checkout, so a double click makes one order. */
+  idempotencyKey: string;
+};
+
+/** Sends the order; the server checks stock and computes every price. */
+export async function sendOrder(order: NewOrder, proof?: File) {
+  if (!proof) return api<CustomerOrder & { token: string }>("/orders", { method: "POST", body: JSON.stringify(order) });
+  const form = new FormData();
+  form.append("order", JSON.stringify(order));
+  form.append("proof", proof);
+  const res = await fetch("/api/orders", { method: "POST", body: form, credentials: "same-origin" });
+  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
+  return (await res.json()) as CustomerOrder & { token: string };
+}
+
+export const getOrder = (code: string, token: string) =>
+  api<CustomerOrder>(`/orders/${encodeURIComponent(code)}?token=${encodeURIComponent(token)}`);
+
+export type PaymentMethods = { cod: boolean; wallet: boolean; instapay: { number: string; name: string } | null };
+
+export const paymentMethods = () => api<PaymentMethods>("/payment-methods");
+
+/* ---------- dashboard orders ---------- */
+
+export type AdminOrder = Omit<CustomerOrder, "items"> & {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  items: (OrderItem & { id: string; productId: string | null })[];
+  hasProof: boolean;
+};
+
+export const listOrders = () => api<AdminOrder[]>("/admin/orders");
+
+export const patchOrder = (id: string, patch: { status?: OrderStatusName; paid?: boolean }) =>
+  api<AdminOrder>(`/admin/orders/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+
+export const decideTransfer = (id: string, approved: boolean) =>
+  api<AdminOrder>(`/admin/orders/${id}/transfer`, { method: "POST", body: JSON.stringify({ approved }) });
+
+/** Address of a transfer screenshot; only works for a logged-in admin. */
+export const proofUrl = (id: string) => `/api/admin/orders/${id}/proof`;
+
+export type InstapayAccount = { number: string; name: string };
+
+export const getInstapay = () => api<InstapayAccount>("/admin/settings/instapay");
+
+export const saveInstapay = (account: InstapayAccount) =>
+  api<InstapayAccount>("/admin/settings/instapay", { method: "PUT", body: JSON.stringify(account) });

@@ -39,6 +39,44 @@ export async function saveProductImage(input: Buffer) {
   return `/uploads/products/${name}`;
 }
 
+/**
+ * Transfer screenshots are private: saved outside the public uploads folder and only
+ * served to a logged-in admin. They are re-encoded like product photos.
+ */
+export const proofsDir = path.resolve(env.UPLOAD_DIR, "private", "proofs");
+
+/** Saves a transfer screenshot and returns its private file name. */
+export async function saveProof(input: Buffer) {
+  let output: Buffer;
+  try {
+    output = await sharp(input, { limitInputPixels: 40_000_000 })
+      .rotate()
+      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toBuffer();
+  } catch {
+    throw new NotAnImage();
+  }
+  await mkdir(proofsDir, { recursive: true });
+  const name = `${randomBytes(16).toString("hex")}.webp`;
+  await writeFile(path.join(proofsDir, name), output);
+  return name;
+}
+
+/** Full path of a saved screenshot, or null if the name is not one we made. */
+export const proofPath = (name: string) => (/^[a-f0-9]{32}\.webp$/.test(name) ? path.join(proofsDir, name) : null);
+
+export async function removeProof(name: string) {
+  const file = proofPath(name);
+  if (file) await rm(file, { force: true });
+}
+
+/** Reads the order form and an optional "proof" screenshot from a multipart request. */
+export const orderForm = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 2, fieldSize: 64 * 1024 },
+}).single("proof");
+
 /** Deletes an uploaded product photo by the path saveProductImage returned. */
 export async function removeUpload(url: string) {
   const name = path.basename(url);

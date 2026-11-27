@@ -12,7 +12,7 @@
     "db:reset": "prisma migrate reset --force",
     "typecheck": "tsc --noEmit",
     "admin:create": "tsx scripts/create-admin.ts",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test --test-concurrency=1 --import ./test/setup.ts test/*.test.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

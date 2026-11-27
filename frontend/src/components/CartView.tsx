@@ -3,8 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { Order } from "@/data/admin";
-import { api } from "@/data/api";
+import { api, type CustomerOrder } from "@/data/api";
 import { setQty, useCart } from "@/data/cart";
 import { rememberOrder } from "@/data/mine";
 import { formatPrice } from "@/data/products";
@@ -29,7 +28,7 @@ const noSubscribe = () => () => {};
 const round ="grid h-11 w-11 place-items-center rounded-full border border-gold text-xl hover:bg-gold/20 disabled:opacity-40";
 
 /** The products in the cart, read fresh from the server. null while loading; missing means hidden or deleted. */
-function useCartProducts(slugs: string[]) {
+function useCartProducts(slugs: string[], version: number) {
   // Remember which cart the answer is for, so an older answer never shows as "empty cart".
   const [found, setFound] = useState<{ for: string; products: Record<string, ShopProductDetail | null> } | null>(null);
   const wanted = [...new Set(slugs)].sort().join(",");
@@ -47,7 +46,7 @@ function useCartProducts(slugs: string[]) {
     return () => {
       live = false;
     };
-  }, [wanted]);
+  }, [wanted, version]);
 
   return found?.for === wanted ? found.products : null;
 }
@@ -55,8 +54,10 @@ function useCartProducts(slugs: string[]) {
 export default function CartView({ lang, t, checkout, status }: { lang: "ar" | "en"; t: Labels; checkout: CheckoutLabels; status: StatusLabels }) {
   const cart = useCart();
   const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
-  const products = useCartProducts(cart.map((l) => l.slug));
-  const [placed, setPlaced] = useState<Order | null>(null);
+  // Bumped when the server says stock changed, to read the cart products again.
+  const [version, setVersion] = useState(0);
+  const products = useCartProducts(cart.map((l) => l.slug), version);
+  const [placed, setPlaced] = useState<CustomerOrder | null>(null);
 
   const lines = cart.flatMap((line) => {
     const product = products?.[line.slug];
@@ -65,23 +66,21 @@ export default function CartView({ lang, t, checkout, status }: { lang: "ar" | "
     const name = product.name[lang] || product.name.ar;
     const colorName = variant.color && (variant.color[lang] || variant.color.ar);
     const details = [colorName && `${t.color}: ${colorName}`, variant.size && `${t.size}: ${variant.size}`].filter(Boolean).join(" / ");
-    // Saved in the order in Arabic, like the dashboard shows it.
-    const label = [variant.color?.ar, variant.size].filter(Boolean).join(" / ") || "القطعة";
-    return [{ line, product, name, details, label, max: availableOf(product, variant), price: product.finalPrice }];
+    return [{ line, product, name, details, max: availableOf(product, variant), price: product.finalPrice }];
   });
 
   if (placed) {
     const message = [
       t.message,
-      `#${placed.id}`,
-      ...placed.lines.map((l) => `- ${l.name} (${l.label}) × ${l.qty}`),
+      `#${placed.code}`,
+      ...placed.items.map((l) => `- ${l.name} (${l.label}) × ${l.qty}`),
       `${t.total}: ${formatPrice(placed.total, lang)}`,
     ].join("\n");
     return (
       <div role="status" className="mt-10">
-        <p className="text-2xl font-bold">{checkout.done} <bdi className="text-gold">{placed.id}</bdi></p>
+        <p className="text-2xl font-bold">{checkout.done} <bdi className="text-gold">{placed.code}</bdi></p>
         <p className="mt-2 text-lg">{t.total}: {formatPrice(placed.total, lang)}</p>
-        <OrderStatus id={placed.id} t={status} />
+        <OrderStatus order={placed} t={status} />
         <Link className="mt-4 block font-bold text-gold underline" href={`/${lang}/orders`}>{status.mine}</Link>
         <a className="btn btn-solid mt-6" href={`https://wa.me/201281227555?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
           {checkout.send}
@@ -135,12 +134,13 @@ export default function CartView({ lang, t, checkout, status }: { lang: "ar" | "
         totalLabel={t.total}
         subtotal={subtotal}
         blocked={lines.some((l) => l.line.qty > l.max)}
-        items={lines.map((l) => ({ slug: l.line.slug, key: l.line.variantId, name: l.product.name.ar, label: l.label, qty: l.line.qty, price: l.price }))}
-        onPlaced={(order) => {
+        items={lines.map((l) => ({ variantId: l.line.variantId, qty: l.line.qty }))}
+        onPlaced={({ token, ...order }) => {
           lines.forEach((l) => setQty(l.line, 0));
-          rememberOrder(order.id);
+          rememberOrder({ code: order.code, token });
           setPlaced(order);
         }}
+        onStockChanged={() => setVersion((v) => v + 1)}
       />
     </>
   );

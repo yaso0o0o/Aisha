@@ -24,6 +24,7 @@ describe("admin auth", () => {
   });
 
   after(async () => {
+    await prisma.auditLog.deleteMany({ where: { admin: { email } } });
     await prisma.admin.deleteMany({ where: { email } });
     await prisma.$disconnect();
   });

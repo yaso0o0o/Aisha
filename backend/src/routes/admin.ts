@@ -14,6 +14,7 @@ import {
 import { prisma } from "../db.js";
 import { invalid } from "../validate.js";
 import { adminProducts } from "./adminProducts.js";
+import { adminOrders } from "./adminOrders.js";
 import { adminShop } from "./adminShop.js";
 
 export const admin = Router();
@@ -67,3 +68,4 @@ admin.get("/admin/me", (req, res) => {
 
 admin.use(adminProducts);
 admin.use(adminShop);
+admin.use(adminOrders);

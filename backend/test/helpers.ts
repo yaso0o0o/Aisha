@@ -17,6 +17,10 @@ export async function loggedInAdmin() {
   return {
     email,
     cookie,
-    remove: () => prisma.admin.deleteMany({ where: { email } }),
+    // Removes the admin and the log lines it left (logins, settings changes).
+    remove: async () => {
+      await prisma.auditLog.deleteMany({ where: { admin: { email } } });
+      await prisma.admin.deleteMany({ where: { email } });
+    },
   };
 }

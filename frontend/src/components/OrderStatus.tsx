@@ -1,6 +1,6 @@
 "use client";
 
-import { orderStore } from "@/data/admin";
+import type { CustomerOrder } from "@/data/api";
 
 export type StatusLabels = Record<
   | "mine" | "title" | "none" | "awaiting" | "approved" | "rejected"
@@ -8,17 +8,13 @@ export type StatusLabels = Record<
   string
 >;
 
-/** Live state of one order; it changes as soon as the dashboard decides. */
-export default function OrderStatus({ id, t }: { id: string; t: StatusLabels }) {
-  const order = orderStore.useList().find((o) => o.id === id);
-  if (!order) return null;
-
+/** Where one order stands, in the customer's words. */
+export default function OrderStatus({ order, t }: { order: Pick<CustomerOrder, "status" | "transfer">; t: StatusLabels }) {
   const key =
-    order.transfer === "rejected" || order.transfer === "awaiting"
-      ? order.status === "cancelled" && order.transfer === "awaiting" ? "cancelled" : order.transfer
-      : order.transfer === "approved" && order.status === "confirmed"
-        ? "approved"
-        : order.status;
+    order.transfer === "rejected" ? "rejected"
+      : order.transfer === "awaiting" ? (order.status === "cancelled" ? "cancelled" : "awaiting")
+        : order.transfer === "approved" && order.status === "confirmed" ? "approved"
+          : order.status;
   const tone =
     key === "awaiting" || key === "new" ? "border-gold text-gold"
       : key === "rejected" || key === "cancelled" ? "border-linen/40 bg-wine"
