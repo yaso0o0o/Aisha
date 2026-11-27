@@ -1,10 +1,12 @@
-// Numbers of the orders placed from this browser.
+// Orders placed from this browser: code and the secret token needed to read each one.
 import { createStore } from "./store";
 
-export const myOrderIds = createStore<string>("aisha-my-orders", []);
+export type MyOrder = { code: string; token: string };
 
-export function rememberOrder(id: string) {
+export const myOrders = createStore<MyOrder>("aisha-my-orders-v2", []);
+
+export function rememberOrder(order: MyOrder) {
   try {
-    myOrderIds.write([id, ...myOrderIds.refresh()]);
+    myOrders.write([order, ...myOrders.refresh().filter((o) => o.code !== order.code)]);
   } catch {}
 }

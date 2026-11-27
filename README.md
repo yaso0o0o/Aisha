@@ -15,6 +15,8 @@ npm run dev
 ```
 Open http://localhost:3000
 
+The site forwards `/api/*` to the backend at `API_URL` (default `http://localhost:4000`, see `frontend/.env.example`). To use the dashboard, run the backend too (`backend/README.md`) and create an admin with `npm run admin:create`.
+
 ## Workflow
 One branch per feature (e.g. `feature/products-page`), then a Pull Request into `main`.
 Never commit passwords or `.env` files.

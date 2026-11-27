@@ -100,6 +100,9 @@
     "wallet": "Mobile wallet",
     "coupon": "Discount code",
     "badCoupon": "This code does not apply to this order.",
+    "couponMin": "This code is for orders with products from {min}.",
+    "couponOk": "Code applied: {percent}% off",
+    "noZones": "Shipping is not available right now. Message us on WhatsApp.",
     "subtotal": "Items",
     "discount": "Discount",
     "shipping": "Shipping",
@@ -117,7 +120,9 @@
     "copied": "Copied",
     "proof": "Upload a screenshot of the transfer",
     "needProof": "Upload the transfer screenshot before placing the order.",
-    "badFile": "This file is not a readable image. Try JPG or PNG."
+    "badFile": "This file is not a readable image. Try JPG or PNG.",
+    "sending": "Placing your order...",
+    "tooBig": "The image is too big. The limit is 8 MB."
   },
   "status": {
     "mine": "Track my orders",

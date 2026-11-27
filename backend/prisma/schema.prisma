@@ -37,8 +37,23 @@ model Admin {
   createdAt    DateTime @default(now()) @map("created_at")
 
   auditLogs AuditLog[]
+  sessions  Session[]
 
   @@map("admins")
+}
+
+/// A logged-in admin. The cookie holds a random token; only its SHA-256 hash is stored.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique @map("token_hash")
+  adminId   String   @map("admin_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("sessions")
 }
 
 model Category {
@@ -188,6 +203,8 @@ model OrderItem {
   label     String  @default("")
   unitPrice Int     @map("unit_price")
   qty       Int
+  /// True when this line took pieces from stock (not made to order), so a cancel returns exactly those.
+  stockTaken Boolean @default(false) @map("stock_taken")
 
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
