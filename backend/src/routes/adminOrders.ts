@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { OrderError, orderInclude, reviewTransfer, updateOrder } from "../orders.js";
-import { proofPath } from "../uploads.js";
+import { readProof } from "../uploads.js";
 import { invalid } from "../validate.js";
 import type { Prisma } from "@prisma/client";
 
@@ -83,10 +83,12 @@ adminOrders.post("/admin/orders/:id/transfer", async (req, res) => {
 /** The transfer screenshot, only for a logged-in admin and never cached. */
 adminOrders.get("/admin/orders/:id/proof", async (req, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.id }, select: { proofUrl: true } });
-  const file = order?.proofUrl && proofPath(order.proofUrl);
-  if (!file) return res.status(404).json({ error: "not_found" });
+  const proof = order?.proofUrl ? await readProof(order.proofUrl) : null;
+  if (!proof) return res.status(404).json({ error: "not_found" });
   res.set("Cache-Control", "private, no-store");
-  res.type("image/webp").sendFile(file, (err) => {
+  res.type("image/webp");
+  if (Buffer.isBuffer(proof)) return res.send(proof);
+  res.sendFile(proof, (err) => {
     if (err && !res.headersSent) res.status(404).json({ error: "not_found" });
   });
 });

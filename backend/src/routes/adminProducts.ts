@@ -127,8 +127,10 @@ async function categoryId(slug: string) {
 /** Deletes uploaded photo files that no product uses any more. */
 async function removeUnusedUploads(urls: string[]) {
   for (const url of urls) {
-    if (!url.startsWith("/uploads/products/")) continue;
-    if ((await prisma.productImage.count({ where: { url } })) === 0) await removeUpload(url);
+    // removeUpload ignores addresses that are not our own uploads
+    if ((await prisma.productImage.count({ where: { url } })) > 0) continue;
+    // the product change is already saved: a failed cleanup must not turn it into an error
+    await removeUpload(url).catch((e) => console.error("Could not delete photo", url, e));
   }
 }
 

@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
       { source: "/uploads/:path*", destination: `${api}/uploads/:path*` },
     ];
   },
+  // Photos uploaded from the dashboard when the backend stores them on Cloudinary.
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com", pathname: "/*/image/upload/**" }],
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

@@ -55,7 +55,13 @@ All prices, stock and shipping prices in the seed are samples.
 - Uploads are decoded and saved again as WebP (max 1600 px, 8 MB upload limit), so only real images are kept and phone metadata (like location) is removed.
 - Files are saved in `UPLOAD_DIR` and served at `/uploads/products/...`; the site forwards `/uploads` to the API.
 - Photos no product uses any more are deleted.
-- **Before going live:** many hosts wipe local disk on every deploy. Move uploads to Cloudinary (or similar) or a persistent disk.
+- **Before going live:** many hosts wipe local disk on every deploy. Set `CLOUDINARY_URL` (below).
+
+## Cloudinary
+Set `CLOUDINARY_URL=cloudinary://API_KEY:API_SECRET@CLOUD_NAME` (from the Cloudinary dashboard) on the host.
+- Product photos go to `aisha/products` and the database keeps their https address.
+- Transfer screenshots go to `aisha/proofs` as **authenticated** assets: no public address. The API downloads them with a signed link and passes them only to a logged-in admin.
+- Without it, files stay in `UPLOAD_DIR`. Files already on disk are not moved over.
 
 ## Orders
 - Stock check, stock taken and order saved happen in one transaction. Stock is taken with a
