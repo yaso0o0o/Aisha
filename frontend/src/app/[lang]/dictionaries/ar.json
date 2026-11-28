@@ -135,6 +135,17 @@
     "confirmed": "تم تأكيد طلبك.",
     "shipped": "طلبك اتشحن.",
     "delivered": "طلبك اتسلم.",
-    "cancelled": "الطلب اتلغى."
+    "cancelled": "الطلب اتلغى.",
+    "history": "تاريخ الطلب",
+    "copyLink": "انسخي لينك المتابعة",
+    "copied": "اللينك اتنسخ",
+    "linkNote": "بالينك ده تتابعي الطلب من أي جهاز. متبعتيهوش لحد.",
+    "stepNew": "الطلب اتسجل",
+    "stepConfirmed": "الطلب اتأكد",
+    "stepShipped": "الطلب اتشحن",
+    "stepDelivered": "الطلب اتسلم",
+    "stepCancelled": "الطلب اتلغى",
+    "stepApproved": "الدفع اتأكد والطلب اتأكد",
+    "stepRejected": "الدفع متأكدش والطلب متمش"
   }
 }

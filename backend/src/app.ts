@@ -1,12 +1,16 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express, { type ErrorRequestHandler } from "express";
-import helmet from "helmet";
+import express, { type ErrorRequestHandler, type RequestHandler } from "express";
+import helmetImport from "helmet";
 import { env } from "./env.js";
 import { admin } from "./routes/admin.js";
 import { orders } from "./routes/orders.js";
 import { store } from "./routes/store.js";
 import { productsDir } from "./uploads.js";
+
+// Vercel's type check reads helmet's CommonJS typings and rejects calling the import;
+// at run time it is the same function either way.
+const helmet = helmetImport as unknown as () => RequestHandler;
 
 export const app = express();
 
@@ -41,3 +45,6 @@ const onError: ErrorRequestHandler = (err, _req, res, _next) => {
   res.status(500).json({ error: "server_error" });
 };
 app.use(onError);
+
+// Vercel runs the app from this default export; src/index.ts is for a normal server.
+export default app;

@@ -1,11 +1,12 @@
 // Product photo uploads. Every file is decoded and re-encoded as WebP, so only real
 // images are kept, metadata (like phone location) is stripped and size stays small.
-// Stored on local disk for now; production should move this to Cloudinary or similar.
+// Stored in Cloudinary when CLOUDINARY_URL is set, otherwise on the local disk.
 import { randomBytes } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import multer from "multer";
 import sharp from "sharp";
+import * as cloud from "./cloud.js";
 import { env } from "./env.js";
 
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -33,8 +34,10 @@ export async function saveProductImage(input: Buffer) {
   } catch {
     throw new NotAnImage();
   }
+  const id = randomBytes(12).toString("hex");
+  if (cloud.useCloud) return cloud.uploadProductPhoto(output, id);
   await mkdir(productsDir, { recursive: true });
-  const name = `${randomBytes(12).toString("hex")}.webp`;
+  const name = `${id}.webp`;
   await writeFile(path.join(productsDir, name), output);
   return `/uploads/products/${name}`;
 }
@@ -57,8 +60,14 @@ export async function saveProof(input: Buffer) {
   } catch {
     throw new NotAnImage();
   }
+  const id = randomBytes(16).toString("hex");
+  const name = `${id}.webp`;
+  // the order stores the same short name wherever the file lives
+  if (cloud.useCloud) {
+    await cloud.uploadProofImage(output, id);
+    return name;
+  }
   await mkdir(proofsDir, { recursive: true });
-  const name = `${randomBytes(16).toString("hex")}.webp`;
   await writeFile(path.join(proofsDir, name), output);
   return name;
 }
@@ -68,7 +77,16 @@ export const proofPath = (name: string) => (/^[a-f0-9]{32}\.webp$/.test(name) ? 
 
 export async function removeProof(name: string) {
   const file = proofPath(name);
-  if (file) await rm(file, { force: true });
+  if (!file) return;
+  if (cloud.useCloud) await cloud.removeProofImage(path.basename(name, ".webp"));
+  else await rm(file, { force: true });
+}
+
+/** A saved screenshot: its bytes from Cloudinary, or its path on disk. Null if unknown. */
+export async function readProof(name: string): Promise<Buffer | string | null> {
+  const file = proofPath(name);
+  if (!file) return null;
+  return cloud.useCloud ? cloud.downloadProof(path.basename(name, ".webp")) : file;
 }
 
 /** Reads the order form and an optional "proof" screenshot from a multipart request. */
@@ -79,6 +97,10 @@ export const orderForm = multer({
 
 /** Deletes an uploaded product photo by the path saveProductImage returned. */
 export async function removeUpload(url: string) {
+  if (url.startsWith("https://")) {
+    if (cloud.useCloud) await cloud.removeProductPhoto(url);
+    return;
+  }
   const name = path.basename(url);
   if (!/^[a-f0-9]+\.webp$/.test(name)) return;
   await rm(path.join(productsDir, name), { force: true });

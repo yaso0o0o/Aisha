@@ -9,8 +9,8 @@ import { hasLocale } from "../dictionaries";
 export const metadata: Metadata = { title: "Aisha Dashboard", robots: { index: false, follow: false } };
 
 const words = {
-  ar: { title: "داش بورد Aisha", shop: "رجوع للمتجر", other: "English", demo: "كل حاجة هنا بتتحفظ على السيرفر. الأسعار والمخزون وأسعار الشحن لسه أرقام تجريبية لحد ما تحطي الحقيقية." },
-  en: { title: "Aisha Dashboard", shop: "Back to the shop", other: "العربية", demo: "Everything here is saved on the server. Prices, stock and shipping prices are still sample numbers until you enter the real ones." },
+  ar: { title: "داش بورد Aisha", shop: "رجوع للمتجر", other: "English" },
+  en: { title: "Aisha Dashboard", shop: "Back to the shop", other: "العربية" },
 };
 
 export default async function AdminPage({ params }: PageProps<"/[lang]/admin">) {
@@ -27,7 +27,6 @@ export default async function AdminPage({ params }: PageProps<"/[lang]/admin">) 
           <Link className="inline-flex min-h-11 items-center rounded-full border border-navy/30 px-5 font-bold" href={`/${lang === "ar" ? "en" : "ar"}/admin`}>{t.other}</Link>
         </nav>
       </header>
-      <p className="mx-auto mb-6 max-w-5xl rounded-lg border border-wine/40 bg-wine/10 p-3 text-sm font-bold">{t.demo}</p>
       <AdminLang key={lang} lang={lang}>
         <AdminSession>
           <Tabs />

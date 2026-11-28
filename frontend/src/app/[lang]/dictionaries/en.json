@@ -135,6 +135,17 @@
     "confirmed": "Your order is confirmed.",
     "shipped": "Your order has shipped.",
     "delivered": "Your order was delivered.",
-    "cancelled": "The order was cancelled."
+    "cancelled": "The order was cancelled.",
+    "history": "Order history",
+    "copyLink": "Copy tracking link",
+    "copied": "Link copied",
+    "linkNote": "Use this link to follow the order from any device. Do not share it.",
+    "stepNew": "Order placed",
+    "stepConfirmed": "Order confirmed",
+    "stepShipped": "Order shipped",
+    "stepDelivered": "Order delivered",
+    "stepCancelled": "Order cancelled",
+    "stepApproved": "Payment and order confirmed",
+    "stepRejected": "Payment not confirmed, order stopped"
   }
 }

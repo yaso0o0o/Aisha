@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "vercel-build": "prisma generate && prisma migrate deploy",
     "start": "node dist/index.js",
     "db:up": "docker compose up -d",
     "db:migrate": "prisma migrate dev",
@@ -17,6 +18,7 @@
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",
     "@prisma/client": "^6.19.3",
+    "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^18.0.10",
